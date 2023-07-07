@@ -1,2 +1,2 @@
-call activate  venvOsee
+call activate  mkRisk
 call conda env update --file environment.yml --prune
