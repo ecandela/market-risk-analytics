@@ -1,58 +1,84 @@
-from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.common.by import By
-import pandas as pd
-# Configurar Selenium
-
-options = webdriver.ChromeOptions()
-options.add_argument('--headless')
-driver = webdriver.Chrome(options=options)  # Cambia esto al controlador de navegador que estés utilizando (por ejemplo, Firefox)
+import requests 
+from bs4 import BeautifulSoup 
+import pandas as pd 
 
 
-# Cargar la página
-url = 'https://www.sbs.gob.pe/app/pu/CCID/Paginas/cc_unacurva.aspx'  # Reemplaza con la URL real
-driver.get(url)
+def get_curva_cupon_cero():
 
-lista_cboTipoCurva = Select(driver.find_element(By.ID,'cboTipoCurva'))  # Reemplaza 'id_de_la_lista' con el ID real de la lista desplegable
-lista_cboTipoCurva.select_by_visible_text('Curva Cupon Cero Peru Soles Soberana') 
+    URL = "https://www.sbs.gob.pe/app/pu/CCID/Paginas/cc_unacurva.aspx" 
+        
+    with requests.Session() as req:
+        r = req.get(URL) 
+        soup = BeautifulSoup(r.content, 'html.parser') 
 
-lista_cboFechas = Select(driver.find_element(By.ID,'cboFechas')) 
-lista_cboFechas.select_by_visible_text('11/07/2023') 
+        vs = soup.find("input", id="__VSTATE").get("value")
+        ev_val = soup.find("input", id="__EVENTVALIDATION").get("value")
 
-btnConsultar = driver.find_element(By.ID,'btnConsultar')  # Reemplaza 'id_del_boton' con el ID real del botón
-btnConsultar.click()
+        data = {
+                '__EVENTTARGET': 'cboTipoCurva',
+                '__EVENTARGUMENT': '',
+                '__LASTFOCUS': '',
+                '__VSTATE': vs,
+                '__VIEWSTATE': '',     
 
-# Obtener el contenido después de hacer clic en el botón
-contenido_html = driver.page_source
+                '__SCROLLPOSITIONX':'0',
+                '__SCROLLPOSITIONY':'100',
 
-# Utilizar BeautifulSoup para analizar el contenido HTML
-soup = BeautifulSoup(contenido_html, 'html.parser')
+                '__EVENTVALIDATION':ev_val,
+                'cboTipoCurva': 'CCPSS'
+            }
+        r = req.post(URL, data=data)
+        soup_post_t_curv = BeautifulSoup(r.content, 'html.parser')
 
-# Encontrar la tabla por su ID
-tabla = soup.find('table', {'id': 'tablaCuerpo'})
+        vs = soup_post_t_curv.find("input", id="__VSTATE").get("value")
+        ev_val = soup_post_t_curv.find("input", id="__EVENTVALIDATION").get("value")
 
-# Encontrar el cuerpo de la tabla
-tbody = tabla.find('tbody')
+        data = {
+                '__EVENTTARGET': '',
+                '__EVENTARGUMENT': '',
+                '__LASTFOCUS': '',
+                '__VSTATE': vs,
+                '__VIEWSTATE': '',     
+
+                '__SCROLLPOSITIONX':'0',
+                '__SCROLLPOSITIONY':'64',
+
+                '__EVENTVALIDATION':ev_val,
+                'cboTipoCurva': 'CCPSS',
+                'cboFechas':'24/07/2023', 
+                'btnConsultar':"Consultar"
+            }
+        r = req.post(URL, data=data)
+        soup_post_result = BeautifulSoup(r.content, 'html.parser')
+
+        tablaCab = soup_post_result.find('table', {'id': 'tablaDetalle'})
+
+        thead = tablaCab.find('thead')    
+        lista_columnas = []
+
+        for fila in thead.find_all('tr'):
+            celdas = fila.find_all('th',{'class':'APLI_cabeceraTabla2'})
+            datos_columna = [celda.text.strip() for celda in celdas]
+            if len(datos_columna)>0:
+                lista_columnas = datos_columna
+
+        tablaCuerpo = soup_post_result.find('table', {'id': 'tablaCuerpo'})
+        tbody = tablaCuerpo.find('tbody')
+        datos_tabla = []
+        # Iterar sobre las filas de la tabla
+        for fila in tbody.find_all('tr'):
+            # Obtener los datos de cada celda en la fila
+            celdas = fila.find_all('td')
+            datos_fila = [celda.text.strip() for celda in celdas]    
+            datos_tabla.append(datos_fila)  
 
 
-datos_tabla = []
-# Iterar sobre las filas de la tabla
-for fila in tbody.find_all('tr'):
-    # Obtener los datos de cada celda en la fila
-    celdas = fila.find_all('td')
-    datos_fila = [celda.text.strip() for celda in celdas]
-    datos_tabla.append(datos_fila)   
-    # Hacer algo con los datos de la fila
-    # ...
+        df = pd.DataFrame(datos_tabla, columns=lista_columnas)
 
-cls = ["Sec.","Fecha de Proceso","Periodo (días)","Tasas (%)"] 
-
-# Crear un DataFrame utilizando pandas
-df = pd.DataFrame(datos_tabla,columns=cls)
+        return df
+    
 
 
-# Cerrar el navegador
-driver.quit()
+df_cup= get_curva_cupon_cero()
 
-df.head()
+df_cup.head()
