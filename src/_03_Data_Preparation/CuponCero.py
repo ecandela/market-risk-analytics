@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import pandas as pd 
 
 
-def get_curva_cupon_cero():
+def get_curva_cupon_cero(tipoCurva=None,fechaProceso=None,tramoCorto=False):
 
     URL = "https://www.sbs.gob.pe/app/pu/CCID/Paginas/cc_unacurva.aspx" 
         
@@ -25,7 +25,7 @@ def get_curva_cupon_cero():
                 '__SCROLLPOSITIONY':'100',
 
                 '__EVENTVALIDATION':ev_val,
-                'cboTipoCurva': 'CCPSS'
+                'cboTipoCurva': tipoCurva
             }
         r = req.post(URL, data=data)
         soup_post_t_curv = BeautifulSoup(r.content, 'html.parser')
@@ -44,10 +44,14 @@ def get_curva_cupon_cero():
                 '__SCROLLPOSITIONY':'64',
 
                 '__EVENTVALIDATION':ev_val,
-                'cboTipoCurva': 'CCPSS',
-                'cboFechas':'24/07/2023', 
+                'cboTipoCurva': tipoCurva,
+                'cboFechas':fechaProceso,           
                 'btnConsultar':"Consultar"
             }
+        
+        if tramoCorto:
+            data["chkTramoCorto"] = "on"
+
         r = req.post(URL, data=data)
         soup_post_result = BeautifulSoup(r.content, 'html.parser')
 
@@ -75,10 +79,4 @@ def get_curva_cupon_cero():
 
         df = pd.DataFrame(datos_tabla, columns=lista_columnas)
 
-        return df
-    
-
-
-df_cup= get_curva_cupon_cero()
-
-df_cup.head()
+        return df    
